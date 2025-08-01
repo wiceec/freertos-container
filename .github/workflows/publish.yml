@@ -1,0 +1,115 @@
+name: FreeRTOS development containers
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  base:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log into GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Build and push base image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./freertos-base/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          provenance: false
+          tags: ghcr.io/${{ github.repository_owner }}/freertos:base-latest
+
+  archs:
+    needs: [base]
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        toolchain: [
+          { arch: "arm-none-eabi", nick: "arm" },
+          { arch: "riscv-none-elf", nick: "riscv" },
+          { arch: "xtensa-esp32-elf", nick: "xtensa-esp32" }
+        ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log into GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Build and push arch-specific images
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./freertos/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          provenance: false
+          tags: ghcr.io/${{ github.repository_owner }}/freertos:${{ matrix.toolchain.nick }}-latest
+          build-args: |
+            BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/freertos:base-latest
+            TOOLCHAIN_ARCH=${{ matrix.toolchain.arch }}
+
+  posix:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log into GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Build and push posix image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./freertos-posix/Dockerfile
+          push: true
+          platforms: linux/amd64
+          provenance: false
+          tags: ghcr.io/${{ github.repository_owner }}/freertos:posix-latest
+          build-args: |
+            BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/freertos:base-latest
