@@ -11,5 +11,8 @@ RUN apt-get update && apt-get install -y \
     jq \
     wget \
     unzip \
+    dos2unix\
+    srecord\
+    p7zip-full\
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
